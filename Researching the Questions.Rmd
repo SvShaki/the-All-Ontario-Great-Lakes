@@ -1,0 +1,296 @@
+---
+title: "Researching the Questions"
+author: "Sviatlana Shakibaei"
+date: "2024-02-17"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+#Loading Dataset
+Lakes <-read.csv(file="https://files.ontario.ca/moe_mapping/downloads/2Water/GLIP/All_Lakes_GLIP.csv",header=T,sep=",")
+```
+
+```{r}
+#Checking for Missing Values
+sum(is.na(Lakes))
+```
+
+```{r}
+#Handling the Missing Values
+Lakes <- na.omit(Lakes)
+```
+
+```{r}
+#Standardizing the Data
+
+#Selecting only Numeric Columns
+numeric_columns <- sapply(Lakes, is.numeric)
+
+#Standardizing Numeric Columns in the Dataset
+Lakes_standardized <- as.data.frame(scale(Lakes[, numeric_columns]))
+
+#Viewing the First Few Rows of the Standardized Dataset
+head(Lakes_standardized)
+```
+
+```{r}
+#1 Question.
+
+#Are there significant differences in researching pollution levels, ecosystem health, and human impacts between Lake Ontario, Lake Erie, Lake Huron, and Lake Superior?
+
+#Loading Necessary Libraries
+library("rpart") # for Decision Trees
+library("caret") # for Data Preprocessing and Model Evaluation
+
+#Reading the Dataset
+data <- Lakes
+
+#Preprocessing: Selecting Relevant Columns and Handle Missing Values
+Lakes_clean <- data[, c("LAKE", "PARAMETER", "VALUE")]
+Lakes_clean <- na.omit(Lakes_clean) # Removing Rows with Missing Values
+
+#Converting Categorical Variables to Factors
+Lakes_clean$LAKE <- as.factor(Lakes_clean$LAKE)
+
+#Splitting the Data into Training and Testing Sets
+set.seed(123) # for Reproducibility
+trainIndex <- createDataPartition(Lakes_clean$LAKE, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+data_train <- Lakes_clean[trainIndex, ]
+data_test <- Lakes_clean[-trainIndex, ]
+
+#Training the Decision Tree Model
+model <- rpart(LAKE ~ PARAMETER + VALUE, data = data_train, method = "class")
+
+#Making Predictions on the Test Set
+predictions <- predict(model, data_test, type = "class")
+
+#Evaluating the Model
+confusionMatrix(predictions, data_test$LAKE)
+```
+
+
+```{r}
+#1.a. Question. 
+
+#How Many Sampling Locations are Associated with Each Lake?
+
+#Counting the Number of Sampling Locations for Each Lake
+sampling_locations <- table(Lakes$LAKE)
+print(sampling_locations)
+```
+
+```{r}
+#Creating a Bar Chart Using ggplot2
+install.packages("ggplot2")
+library("ggplot2")
+
+ggplot(Lakes, aes(x = LAKE)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Sampling Locations for Each Lake", x = "Lake", y = "Number of Sampling Locations") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#Creating a Pie Charts Using ggplot2
+library("ggplot2")
+ggplot(Lakes, aes(x = "", fill = LAKE)) +
+  geom_bar(width = 1) +
+  coord_polar("y", start = 0) +
+  labs(title = "Distribution of Sampling Locations for Each Lake") +
+  theme_void()
+```
+
+```{r}
+#1.b. Question. 
+
+#Analysis of the Association between Lake Name and Specific Water Parameter
+
+#Creating a Contingency Table of Lake and Parameter
+contingency_table <- table(Lakes$PARAMETER, Lakes$LAKE)
+print(contingency_table)
+```
+
+```{r}
+#Using aggregate() Function to Calculate mean for the Each Parameter in the Each Lake
+mean_values <- aggregate(VALUE ~ LAKE + PARAMETER, data = Lakes, FUN = mean)
+print(mean_values)
+```
+
+```{r}
+#Two-way ANOVA to Compare Parameter Concentrations Among Lakes and Years
+two_way_anova_model <- aov(VALUE ~ LAKE + YEAR, data = Lakes)
+summary(two_way_anova_model)
+
+#Box Plot of Parameter Concentrations by Lakes
+boxplot(VALUE ~ LAKE, data = Lakes, 
+        xlab = "LAKE", ylab = "VALUE")
+```
+
+```{r}
+#Creating a Heatmap to Visualize the Association between Lake Names and Specific Water Parameter
+heatmap(contingency_table, Rowv=NA, Colv=NA)
+```
+
+```{r}
+#Performing a Chi-square Test of Iindependence 
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+```
+
+```{r}
+#1.c. Question.
+
+#How Many Sampling Locations are Associated with Each Facility Name by Lake and How Many Facilities Associated with Each Lake?
+
+#Counting the Sampling Locations per Station by Lake
+station_by_lake <- table(Lakes$LAKE, Lakes$FACILITY_NAME)
+
+#Counting the Total Number of Stations per Lake
+stations_per_lake <- aggregate(FACILITY_NAME ~ LAKE, data = Lakes, FUN = function(x) length(unique(x)))
+
+#Inspecting the Results
+print(station_by_lake)
+print(stations_per_lake)
+```
+
+```{r}
+#Creating a Bar Plot for the Sampling Locations per Station by Lake
+ggplot(data = as.data.frame.table(station_by_lake), aes(x = Var1, y = Freq, fill = Var2)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Lake", y = "Number of Stations", fill = "Station") +
+  ggtitle("the Sampling Locations per Station by Lake") +
+  theme_minimal()
+
+#Creating a Bar Plot for the Total Number of Stations per Lake
+ggplot(data = stations_per_lake, aes(x = LAKE, y = FACILITY_NAME)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Lake", y = "Number of Stations") +
+  ggtitle("the Total Number of Stations per Lake") +
+  theme_minimal()
+```
+
+```{r}
+#2 Question.
+
+#Identifying Groups of Sampling Locations with Similar Water Quality Characteristics Using Clustering Techniques Using Method K-means Clustering.
+
+#Loading the Required Library for Clustering
+install.packages("stats")
+library("stats")
+
+#Performing K-means Clustering
+set.seed(123)  # Set seed for reproducibility
+k <- 3  # Number of clusters
+kmeans_result <- kmeans(Lakes_standardized, centers = k, nstart = 25)
+
+#Assigning Cluster Labels to the Original Dataset
+Lakes$cluster <- as.factor(kmeans_result$cluster)
+
+#Viewing Cluster Centers
+kmeans_result$centers
+
+#Viewing Cluster Sizes
+table(Lakes$cluster)
+```
+
+```{r}
+#Visualizing the Clusters Obtained from K-means Clustering
+
+# Performing PCA to Reduce Dimensionality for Visualization
+pca_result <- prcomp(Lakes_standardized, scale. = TRUE)
+
+#Extracting the First Two Principal Components
+pca_data <- as.data.frame(pca_result$x[, 1:2])
+
+#Adding Cluster Labels to the PCA Data
+pca_data$cluster <- as.factor(kmeans_result$cluster)
+
+#Plotting the Clusters Using ggplot2
+library("ggplot2")
+ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(size = 3) +
+  scale_color_brewer(palette = "Set1", name = "Cluster") +
+  labs(x = "Principal Component 1", y = "Principal Component 2", title = "K-means Clustering of Lakes Dataset") +
+  theme_minimal()
+```
+
+```{r}
+#3 Question.
+
+#Performing Time Series Analysis to Detect Trends and Patterns in the Number of Sampling Locations over Time for Each Lake.
+
+#Loading Required Libraries
+library(dplyr)
+
+#Converting 'YEAR' to Date Format
+Lakes$YEAR <- as.Date(paste0(Lakes$YEAR, "-01-01"))
+
+#Aggregating Data to Count the Number of Sampling Locations for Each Lake in Each Year
+location_counts <- Lakes %>%
+  group_by(LAKE, YEAR) %>%
+  summarise(num_locations = n(), .groups = "drop")
+
+#Time Series Visualization
+ggplot(location_counts, aes(x = YEAR, y = num_locations, group = LAKE, color = LAKE)) +
+  geom_line() +
+  labs(x = "Year", y = "Number of Sampling Locations", title = "Number of Sampling Locations Over Time by Lake") +
+  theme_minimal()
+```
+
+```{r}
+#Performing Trend Analysis by Fitting a Linear Regression Model to the Time Series Data and Analyzing the Trend Component
+
+# Fitting a Linear Regression Model to the Time Series Data
+trend_model <- lm(num_locations ~ YEAR, data = location_counts)
+
+#Viewing the Summary of the Model
+summary(trend_model)
+```
+
+```{r}
+#ARIMA Model to the Time Series Data and Providing Forecasts for Future Values.
+
+#Installing and Loading the Forecast Package
+#install.packages("forecast")
+library("forecast")
+
+#Fitting an ARIMA Model
+arima_model <- auto.arima(location_counts$num_locations)
+
+#Forecasting Future Values
+forecast_values <- forecast(arima_model, h = 12)  # Forecast for the next 12 periods
+
+#Plotting the Forecast
+plot(forecast_values, main = "ARIMA Forecast")
+
+#Calculating MAE and RMSE for evaluation
+#Splitting Data into Training and Testing Sets
+train <- location_counts$num_locations[1:floor(0.8 * length(location_counts$num_locations))]
+test <- location_counts$num_locations[(floor(0.8 * length(location_counts$num_locations)) + 1):length(location_counts$num_locations)]
+
+#Forecast Using ARIMA Model
+arima_forecast <- forecast(arima_model, h = length(test))
+
+#Calculating MAE and RMSE and MAPE
+arima_mae <- mean(abs(arima_forecast$mean - test))
+arima_rmse <- sqrt(mean((arima_forecast$mean - test)^2))
+arima_mape <- mean(abs((arima_forecast$mean - test) / test)) * 100
+
+#Printing ARIMA Performance Measures
+cat("ARIMA MAE:", arima_mae, "\n")
+cat("ARIMA RMSE:", arima_rmse, "\n")
+cat("ARIMA MAPE:", arima_mape, "%\n")
+
+#Visualizing Actual vs Forecasted Values
+plot(location_counts$YEAR[(length(location_counts$YEAR) - length(test) + 1):length(location_counts$YEAR)], test, type = 'l', col = 'blue', ylim = range(c(test, arima_forecast$mean)),
+     xlab = "Time", ylab = "Number of Sampling Locations", main = "Actual vs Forecasted Values")
+lines(location_counts$YEAR[(length(location_counts$YEAR) - length(test) + 1):length(location_counts$YEAR)], arima_forecast$mean, col = 'red')
+legend("topright", legend = c("Actual", "ARIMA Forecast"), col = c("blue", "red"), lty = 1)
+```
+
+
+
