@@ -7,7 +7,7 @@ Methodology and Stages
 
 Abstract: Introduction to methodology and dataset and outlining goals of study
 
-Literature Review: Review of existing literature in this and closesly-related areas of study
+Literature Review, Data Description and Approach: Review of existing literature in this and closesly-related areas of study, data description and approach
 
 Data Processing: Open-source dataset is transformed and made fit for model intake
 
