@@ -21,7 +21,7 @@ The contents of this repository are provided below. All reports derived from R S
 
 Abstract Revised - Microsoft Word Document
 
-Literature Review Revised - Microsoft Word Document
+Literature Review, Data Description and Approach Revised - Microsoft Word Document
 
 Dataset - Microsoft Excel Document
 
